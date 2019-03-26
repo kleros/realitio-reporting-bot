@@ -88,7 +88,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
         tokenID = eventLog.returnValues._tokenID
         const token = await t2crInstance.methods.tokens(tokenID).call()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/${tokenID}`)
+        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
         // look up to see if this token_id already has a thread
         const tokenThread = await db.findOne({tokenID})
         if (tokenThread)
@@ -204,7 +204,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           if (evidenceJSON.description.length > 130) evidenceJSON.description = evidenceJSON.description.substr(0,127) + '...'
         }
 
-        const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/${tokenID}`)
+        const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
         tweet = await twitterClient.post('statuses/update', {
           status: `New Evidence for ${token.name}: ${evidenceJSON.title}
@@ -400,7 +400,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
         const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/${tokenID}`)
+        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
         tweet = await twitterClient.post('statuses/update', {
           status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing ${token.name}. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
