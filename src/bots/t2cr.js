@@ -2,7 +2,6 @@ const fs = require('fs')
 const axios = require('axios')
 const { BitlyClient } = require('bitly')
 const delay = require('delay')
-const fileType = require('file-type')
 
 const _t2cr = require('../contracts/t2cr.json')
 const _address = require('../contracts/address.json')
@@ -30,7 +29,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
     const ethString = web3.utils.fromWei(weiAmount)
     // only show up to 4 decimal places worth
     const splitAmounts = ethString.split('.')
-    return splitAmounts[0] + '.' + (splitAmounts[1] ? splitAmounts[1].substr(0,4) : '')
+    return splitAmounts[0] + '.' + (splitAmounts[1] ? splitAmounts[1].substr(0,2) : '')
   }
 
   // connect to the right collection
@@ -154,7 +153,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
                 fs.unlinkSync(filePath)
 
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `${token.name} (${token.ticker}) has requested to be added to the list. Verify that the token listing is correct. If you challenge and win you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)}
+                  status: `${token.name} (${token.ticker}) has requested to be added to the list. Verify that the token listing is correct. If you challenge and win you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH
                   \nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true,
@@ -164,7 +163,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               }
               else {
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `Some requested to remove ${token.name} (${token.ticker}) from the list with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win you will take the deposit
+                  status: `Someone requested to remove ${token.name} (${token.ticker}) from the list with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. If you challenge the removal and win you will take the deposit
                   \nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true

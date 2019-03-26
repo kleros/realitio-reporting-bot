@@ -34,7 +34,6 @@
     "bitly": "^6.0.8",
     "delay": "^4.1.0",
     "env-cmd": "^8.0.2",
-    "file-type": "^10.9.0",
     "function-batch": "^1.1.2",
     "mongodb": "^3.1.13",
     "twit": "^2.2.11",
