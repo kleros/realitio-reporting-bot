@@ -246,7 +246,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
         tokenID = tokenQuery.values[0]
         const token = await t2crInstance.methods.tokens(tokenID).call()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badges/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
         // look up to see if this token_id already has a thread
         const tokenThread = await db.findOne({tokenID})
         if (tokenThread)
@@ -358,7 +358,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           if (evidenceJSON.description.length > 100) evidenceJSON.description = evidenceJSON.description.substr(0,97) + '...'
         }
 
-        const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badges/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+        const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
 
         tweet = await twitterClient.post('statuses/update', {
           status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.title}
@@ -432,7 +432,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
         const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badges/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
 
         tweet = await twitterClient.post('statuses/update', {
           status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
