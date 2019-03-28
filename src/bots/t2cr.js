@@ -202,17 +202,19 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
           shortenedLink = await bitly.shorten(linkURI)
         }
-        const titleLength = evidenceJSON.title ? evidenceJSON.title.length : 0
-        const descriptionLength = evidenceJSON.description ? evidenceJSON.description.length : 0
-        if (titleLength + descriptionLength > 160) {
-          if (titleLength > 30) evidenceJSON.title = evidenceJSON.title.substr(0,27) + '...'
-          if (descriptionLength > 130) evidenceJSON.description = evidenceJSON.description.substr(0,127) + '...'
+        const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
+        evidenceJSON.name = evidenceTitle
+        const evidenceDescription = evidenceJSON.description || ''
+
+        if (evidenceTitle.length + evidenceDescription.length > 160) {
+          if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
+          if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
         }
 
         const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
         tweet = await twitterClient.post('statuses/update', {
-          status: `New Evidence for ${token.name}: ${evidenceJSON.title || ''}
+          status: `New Evidence for ${token.name}: ${evidenceJSON.name || ''}
           ${evidenceJSON.description ? `\n${evidenceJSON.description}`: ''}
           \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
           \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
@@ -357,17 +359,19 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
           shortenedLink = await bitly.shorten(linkURI)
         }
-        const titleLength = evidenceJSON.title ? evidenceJSON.title.length : 0
-        const descriptionLength = evidenceJSON.description ? evidenceJSON.description.length : 0
-        if (titleLength + descriptionLength > 160) {
-          if (titleLength > 30) evidenceJSON.title = evidenceJSON.title.substr(0,27) + '...'
-          if (descriptionLength > 100) evidenceJSON.description = evidenceJSON.description.substr(0,97) + '...'
+        const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
+        evidenceJSON.name = evidenceTitle
+        const evidenceDescription = evidenceJSON.description || ''
+
+        if (evidenceTitle.length + evidenceDescription.length > 160) {
+          if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
+          if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
         }
 
         const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
 
         tweet = await twitterClient.post('statuses/update', {
-          status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.title}
+          status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.name}
           ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
           \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
           \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
