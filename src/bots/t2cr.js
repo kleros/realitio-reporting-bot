@@ -73,27 +73,27 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       let tokenID
       let tweetID
 
-      if (eventLog.event === 'TokenStatusChange') {
-        // get base deposits
-        const extraData = await t2crInstance.methods.arbitratorExtraData().call()
-        const arbitrationCost = await athenaInstance.methods.arbitrationCost(extraData).call()
-        const divisor = await t2crInstance.methods.MULTIPLIER_DIVISOR().call()
-        const sharedStakeMultiplier = await t2crInstance.methods.sharedStakeMultiplier().call()
-        const challengerBaseDeposit = await t2crInstance.methods.challengerBaseDeposit().call()
-        const requesterBaseDeposit = await t2crInstance.methods.requesterBaseDeposit().call()
-        const sharedDepositBase = web3.utils.toBN(arbitrationCost).mul(web3.utils.toBN(sharedStakeMultiplier)).div(web3.utils.toBN(divisor))
-        const challengerWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(challengerBaseDeposit))
-        const requesterWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(requesterBaseDeposit))
+      try {
+        if (eventLog.event === 'TokenStatusChange') {
+          // get base deposits
+          const extraData = await t2crInstance.methods.arbitratorExtraData().call()
+          const arbitrationCost = await athenaInstance.methods.arbitrationCost(extraData).call()
+          const divisor = await t2crInstance.methods.MULTIPLIER_DIVISOR().call()
+          const sharedStakeMultiplier = await t2crInstance.methods.sharedStakeMultiplier().call()
+          const challengerBaseDeposit = await t2crInstance.methods.challengerBaseDeposit().call()
+          const requesterBaseDeposit = await t2crInstance.methods.requesterBaseDeposit().call()
+          const sharedDepositBase = web3.utils.toBN(arbitrationCost).mul(web3.utils.toBN(sharedStakeMultiplier)).div(web3.utils.toBN(divisor))
+          const challengerWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(challengerBaseDeposit))
+          const requesterWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(requesterBaseDeposit))
 
-        tokenID = eventLog.returnValues._tokenID
-        const token = await t2crInstance.methods.tokens(tokenID).call()
+          tokenID = eventLog.returnValues._tokenID
+          const token = await t2crInstance.methods.tokens(tokenID).call()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
-        // look up to see if this token_id already has a thread
-        const tokenThread = await db.findOne({tokenID})
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
+          // look up to see if this token_id already has a thread
+          const tokenThread = await db.findOne({tokenID})
         if (tokenThread)
           in_reply_to_status_id = await tokenThread.lastTweetID
-        try {
           if (eventLog.returnValues._status === "0") {
             const tokenInfo = await t2crInstance.methods.getTokenInfo(tokenID).call()
             tweet = await twitterClient.post('statuses/update', {
@@ -176,52 +176,51 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               }
             }
           }
-        } catch (err) {
-          // duplicate tweet. just move on
-          console.error(err)
-          continue
         }
+        else if (eventLog.event === 'Evidence') {
+          const tx = await web3.eth.getTransaction(eventLog.transactionHash)
+          tokenID = '0x' + tx.input.substr(10,64)
+          const token = await t2crInstance.methods.tokens(tokenID).call()
 
-      }
-      else if (eventLog.event === 'Evidence') {
-        const tx = await web3.eth.getTransaction(eventLog.transactionHash)
-        tokenID = '0x' + tx.input.substr(10,64)
-        const token = await t2crInstance.methods.tokens(tokenID).call()
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
 
-        const tokenThread = await db.findOne({tokenID})
-        if (tokenThread)
-          in_reply_to_status_id = await tokenThread.lastTweetID
+          const evidenceURI = eventLog.returnValues._evidence[0] === '/' ? `${IPFS_URL}${eventLog.returnValues._evidence}` : eventLog.returnValues._evidence
+          const evidence = await axios.get(evidenceURI)
+          const evidenceJSON = evidence.data
 
-        const evidenceURI = eventLog.returnValues._evidence[0] === '/' ? `${IPFS_URL}${eventLog.returnValues._evidence}` : eventLog.returnValues._evidence
-        const evidence = await axios.get(evidenceURI)
-        const evidenceJSON = evidence.data
+          let shortenedLink
 
-        let shortenedLink
+          if (evidenceJSON.fileURI) {
+            const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
+            shortenedLink = await bitly.shorten(linkURI)
+          }
+          const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
+          evidenceJSON.name = evidenceTitle
+          const evidenceDescription = evidenceJSON.description || ''
 
-        if (evidenceJSON.fileURI) {
-          const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
-          shortenedLink = await bitly.shorten(linkURI)
+          if (evidenceTitle.length + evidenceDescription.length > 160) {
+            if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
+            if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
+          }
+
+          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
+
+          tweet = await twitterClient.post('statuses/update', {
+            status: `New Evidence for ${token.name}: ${evidenceJSON.name || ''}
+            ${evidenceJSON.description ? `\n${evidenceJSON.description}`: ''}
+            \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
+            \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
+            in_reply_to_status_id,
+            auto_populate_reply_metadata: true,
+          })
+          tweetID = tweet.data.id_str
         }
-        const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
-        evidenceJSON.name = evidenceTitle
-        const evidenceDescription = evidenceJSON.description || ''
-
-        if (evidenceTitle.length + evidenceDescription.length > 160) {
-          if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
-          if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
-        }
-
-        const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
-
-        tweet = await twitterClient.post('statuses/update', {
-          status: `New Evidence for ${token.name}: ${evidenceJSON.name || ''}
-          ${evidenceJSON.description ? `\n${evidenceJSON.description}`: ''}
-          \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
-          \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
-          in_reply_to_status_id,
-          auto_populate_reply_metadata: true,
-        })
-        tweetID = tweet.data.id_str
+      } catch (err) {
+        // duplicate tweet. just move on
+        console.error(err)
+        continue
       }
 
       // update thread id
@@ -231,34 +230,34 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
     // BADGES
     for (const eventLog of badgeEvents) {
-      let tweet
-      let in_reply_to_status_id
-      let tokenID
-      let tweetID
+      try {
+        let tweet
+        let in_reply_to_status_id
+        let tokenID
+        let tweetID
 
-      if (eventLog.event === 'AddressStatusChange') {
-        // get base deposits
-        const extraData = await badgeInstance.methods.arbitratorExtraData().call()
-        const arbitrationCost = await athenaInstance.methods.arbitrationCost(extraData).call()
-        const divisor = await badgeInstance.methods.MULTIPLIER_DIVISOR().call()
-        const sharedStakeMultiplier = await badgeInstance.methods.sharedStakeMultiplier().call()
-        const challengerBaseDeposit = await badgeInstance.methods.challengerBaseDeposit().call()
-        const requesterBaseDeposit = await badgeInstance.methods.requesterBaseDeposit().call()
-        const sharedDepositBase = web3.utils.toBN(arbitrationCost).mul(web3.utils.toBN(sharedStakeMultiplier)).div(web3.utils.toBN(divisor))
-        const challengerWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(challengerBaseDeposit))
-        const requesterWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(requesterBaseDeposit))
-        address = eventLog.returnValues._address
+        if (eventLog.event === 'AddressStatusChange') {
+          // get base deposits
+          const extraData = await badgeInstance.methods.arbitratorExtraData().call()
+          const arbitrationCost = await athenaInstance.methods.arbitrationCost(extraData).call()
+          const divisor = await badgeInstance.methods.MULTIPLIER_DIVISOR().call()
+          const sharedStakeMultiplier = await badgeInstance.methods.sharedStakeMultiplier().call()
+          const challengerBaseDeposit = await badgeInstance.methods.challengerBaseDeposit().call()
+          const requesterBaseDeposit = await badgeInstance.methods.requesterBaseDeposit().call()
+          const sharedDepositBase = web3.utils.toBN(arbitrationCost).mul(web3.utils.toBN(sharedStakeMultiplier)).div(web3.utils.toBN(divisor))
+          const challengerWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(challengerBaseDeposit))
+          const requesterWinnableDeposit = sharedDepositBase.add(web3.utils.toBN(requesterBaseDeposit))
+          address = eventLog.returnValues._address
 
-        const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
-        tokenID = tokenQuery.values[0]
-        const token = await t2crInstance.methods.tokens(tokenID).call()
+          const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
+          tokenID = tokenQuery.values[0]
+          const token = await t2crInstance.methods.tokens(tokenID).call()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
-        // look up to see if this token_id already has a thread
-        const tokenThread = await db.findOne({tokenID})
-        if (tokenThread)
-          in_reply_to_status_id = await tokenThread.lastTweetID
-        try {
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+          // look up to see if this token_id already has a thread
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
           if (eventLog.returnValues._status === "0") {
             tweet = await twitterClient.post('statuses/update', {
               status: `${token.name} has been denied the Ethfinex Compliant Badge. ${
@@ -330,57 +329,55 @@ module.exports = async (web3, twitterClient, mongoClient) => {
               }
             }
           }
-        } catch (err) {
-          // duplicate tweet. just move on
-          console.error(err)
-          continue
         }
+        else if (eventLog.event === 'Evidence') {
+          const tx = await web3.eth.getTransaction(eventLog.transactionHash)
+          address = '0x' + tx.input.substr(34,40)
 
+          const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
+          tokenID = tokenQuery.values[0]
+          const token = await t2crInstance.methods.tokens(tokenID).call()
+
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
+
+          const evidenceURI = eventLog.returnValues._evidence[0] === '/' ? `${IPFS_URL}${eventLog.returnValues._evidence}` : eventLog.returnValues._evidence
+          const evidence = await axios.get(evidenceURI)
+          const evidenceJSON = evidence.data
+
+          let shortenedLink
+
+          if (evidenceJSON.fileURI) {
+            const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
+            shortenedLink = await bitly.shorten(linkURI)
+          }
+          const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
+          evidenceJSON.name = evidenceTitle
+          const evidenceDescription = evidenceJSON.description || ''
+
+          if (evidenceTitle.length + evidenceDescription.length > 160) {
+            if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
+            if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
+          }
+
+          const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+
+          tweet = await twitterClient.post('statuses/update', {
+            status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.name}
+            ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
+            \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
+            \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
+            in_reply_to_status_id,
+            auto_populate_reply_metadata: true,
+          })
+          tweetID = tweet.data.id_str
+        }
+      } catch (err) {
+        // duplicate tweet. just move on
+        console.error(err)
+        continue
       }
-      else if (eventLog.event === 'Evidence') {
-        const tx = await web3.eth.getTransaction(eventLog.transactionHash)
-        address = '0x' + tx.input.substr(34,40)
-
-        const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
-        tokenID = tokenQuery.values[0]
-        const token = await t2crInstance.methods.tokens(tokenID).call()
-
-        const tokenThread = await db.findOne({tokenID})
-        if (tokenThread)
-          in_reply_to_status_id = await tokenThread.lastTweetID
-
-        const evidenceURI = eventLog.returnValues._evidence[0] === '/' ? `${IPFS_URL}${eventLog.returnValues._evidence}` : eventLog.returnValues._evidence
-        const evidence = await axios.get(evidenceURI)
-        const evidenceJSON = evidence.data
-
-        let shortenedLink
-
-        if (evidenceJSON.fileURI) {
-          const linkURI = evidenceJSON.fileURI[0] === "/" ? `${IPFS_URL}${evidenceJSON.fileURI}` : evidenceJSON.fileURI
-          shortenedLink = await bitly.shorten(linkURI)
-        }
-        const evidenceTitle = evidenceJSON.title || evidenceJSON.name || ''
-        evidenceJSON.name = evidenceTitle
-        const evidenceDescription = evidenceJSON.description || ''
-
-        if (evidenceTitle.length + evidenceDescription.length > 160) {
-          if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
-          if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
-        }
-
-        const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
-
-        tweet = await twitterClient.post('statuses/update', {
-          status: `New Evidence for ${token.name}'s Ethfinex Compliant Badge: ${evidenceJSON.name}
-          ${evidenceJSON.description ? `\n${evidenceJSON.description}` : ''}
-          \n${shortenedLink ? `\nLink: ${shortenedLink.url}` : ''}
-          \n\nSee Full Evidence: ${shortenedTokenLink.url}`,
-          in_reply_to_status_id,
-          auto_populate_reply_metadata: true,
-        })
-        tweetID = tweet.data.id_str
-      }
-
       // update thread id
       if (tweetID)
         await db.findOneAndUpdate({tokenID}, {$set: {lastTweetID: tweetID}}, { upsert: true })
@@ -388,69 +385,75 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
     // RULINGS
     for (const eventLog of athenaEvents) {
-      let tweetID
-      let in_reply_to_status_id
-      if (eventLog.returnValues._arbitrable === process.env.T2CR_CONTRACT_ADDRESS) {
-        tokenID = t2crInstance.methods.arbitratorDisputeIDToTokenID(eventLog.returnValues._disputeID)
-        const token = await t2crInstance.methods.tokens(tokenID).call()
+      try {
+        let tweetID
+        let in_reply_to_status_id
+        if (eventLog.returnValues._arbitrable === process.env.T2CR_CONTRACT_ADDRESS) {
+          tokenID = t2crInstance.methods.arbitratorDisputeIDToTokenID(eventLog.returnValues._disputeID)
+          const token = await t2crInstance.methods.tokens(tokenID).call()
 
-        const tokenThread = await db.findOne({tokenID})
-        if (tokenThread)
-          in_reply_to_status_id = await tokenThread.lastTweetID
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
 
-        const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID)
-        if (currentRuling === '0')
-          continue
+          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID)
+          if (currentRuling === '0')
+            continue
 
-        const extraData = await t2crInstance.methods.arbitratorExtraData().call()
-        const appealCost = await athenaInstance.methods.appealCost(eventLog.returnValues._disputeID, extraData).call()
-        const winnerStakeMultiplier = await t2crInstance.methods.winnerStakeMultiplier().call()
+          const extraData = await t2crInstance.methods.arbitratorExtraData().call()
+          const appealCost = await athenaInstance.methods.appealCost(eventLog.returnValues._disputeID, extraData).call()
+          const winnerStakeMultiplier = await t2crInstance.methods.winnerStakeMultiplier().call()
 
-        const divisor = await t2crInstance.methods.MULTIPLIER_DIVISOR().call()
+          const divisor = await t2crInstance.methods.MULTIPLIER_DIVISOR().call()
 
-        const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
+          const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
-        tweet = await twitterClient.post('statuses/update', {
-          status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing ${token.name}. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
-          \nSee the listing here: ${shortenedLink.url}`,
-          in_reply_to_status_id,
-          auto_populate_reply_metadata: true
-        })
-        tweetID = tweet.data.id_str
-      }
-      if (eventLog.returnValues._arbitrable === process.env.BADGE_CONTRACT_ADDRESS) {
-        const address = t2crInstance.methods.arbitratorDisputeIDToAddress(eventLog.returnValues._disputeID)
+          tweet = await twitterClient.post('statuses/update', {
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing ${token.name}. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
+            \nSee the listing here: ${shortenedLink.url}`,
+            in_reply_to_status_id,
+            auto_populate_reply_metadata: true
+          })
+          tweetID = tweet.data.id_str
+        }
+        if (eventLog.returnValues._arbitrable === process.env.BADGE_CONTRACT_ADDRESS) {
+          const address = badgeEvents.methods.arbitratorDisputeIDToAddress(eventLog.returnValues._disputeID)
 
-        const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
-        tokenID = tokenQuery.values[0]
-        const token = await t2crInstance.methods.tokens(tokenID).call()
+          const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
+          tokenID = tokenQuery.values[0]
+          const token = await t2crInstance.methods.tokens(tokenID).call()
 
-        const tokenThread = await db.findOne({tokenID})
-        if (tokenThread)
-          in_reply_to_status_id = await tokenThread.lastTweetID
+          const tokenThread = await db.findOne({tokenID})
+          if (tokenThread)
+            in_reply_to_status_id = await tokenThread.lastTweetID
 
-        const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID)
-        if (currentRuling === '0')
-          continue
+          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID)
+          if (currentRuling === '0')
+            continue
 
-        const extraData = await badgeInstance.methods.arbitratorExtraData().call()
-        const appealCost = await athenaInstance.methods.appealCost(eventLog.returnValues._disputeID, extraData).call()
-        const winnerStakeMultiplier = await badgeInstance.methods.winnerStakeMultiplier().call()
-        const divisor = await badgeInstance.methods.MULTIPLIER_DIVISOR().call()
+          const extraData = await badgeInstance.methods.arbitratorExtraData().call()
+          const appealCost = await athenaInstance.methods.appealCost(eventLog.returnValues._disputeID, extraData).call()
+          const winnerStakeMultiplier = await badgeInstance.methods.winnerStakeMultiplier().call()
+          const divisor = await badgeInstance.methods.MULTIPLIER_DIVISOR().call()
 
-        const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
+          const maxFee = web3.utils.toBN(appealCost).mul(web3.utils.toBN(winnerStakeMultiplier)).div(web3.utils.toBN(divisor)).toString()
 
-        const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
+          const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
 
-        tweet = await twitterClient.post('statuses/update', {
-          status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
-          \nSee the listing here: ${shortenedLink.url}`,
-          in_reply_to_status_id,
-          auto_populate_reply_metadata: true
-        })
-        tweetID = tweet.data.id_str
+          tweet = await twitterClient.post('statuses/update', {
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
+            \nSee the listing here: ${shortenedLink.url}`,
+            in_reply_to_status_id,
+            auto_populate_reply_metadata: true
+          })
+          tweetID = tweet.data.id_str
+        }
+      } catch (err) {
+        // duplicate tweet. just move on
+        console.error(err)
+        continue
       }
 
       // update thread id
