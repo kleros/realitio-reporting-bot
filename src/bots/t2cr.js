@@ -230,12 +230,12 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
     // BADGES
     for (const eventLog of badgeEvents) {
-      try {
-        let tweet
-        let in_reply_to_status_id
-        let tokenID
-        let tweetID
+      let tweet
+      let in_reply_to_status_id
+      let tokenID
+      let tweetID
 
+      try {
         if (eventLog.event === 'AddressStatusChange') {
           // get base deposits
           const extraData = await badgeInstance.methods.arbitratorExtraData().call()
@@ -385,9 +385,9 @@ module.exports = async (web3, twitterClient, mongoClient) => {
 
     // RULINGS
     for (const eventLog of athenaEvents) {
+      let tweetID
+      let in_reply_to_status_id
       try {
-        let tweetID
-        let in_reply_to_status_id
         if (eventLog.returnValues._arbitrable === process.env.T2CR_CONTRACT_ADDRESS) {
           tokenID = t2crInstance.methods.arbitratorDisputeIDToTokenID(eventLog.returnValues._disputeID)
           const token = await t2crInstance.methods.tokens(tokenID).call()
@@ -411,7 +411,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing ${token.name}. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} listing ${token.name}. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
             \nSee the listing here: ${shortenedLink.url}`,
             in_reply_to_status_id,
             auto_populate_reply_metadata: true
@@ -443,7 +443,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           const shortenedLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
 
           tweet = await twitterClient.post('statuses/update', {
-            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win an additional stake of up to ${web3.utils.fromWei(maxFee)} ETH.
+            status: `Jurors have ruled ${currentRuling === '1' ? 'for' : 'against'} giving ${token.name} the Ethfinex Compliant Badge. Think they are wrong? Fund an appeal for the chance to win up to ${prettyWeiToEth(maxFee)} ETH.
             \nSee the listing here: ${shortenedLink.url}`,
             in_reply_to_status_id,
             auto_populate_reply_metadata: true
