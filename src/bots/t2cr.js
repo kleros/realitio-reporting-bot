@@ -200,9 +200,9 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           evidenceJSON.name = evidenceTitle
           const evidenceDescription = evidenceJSON.description || ''
 
-          if (evidenceTitle.length + evidenceDescription.length > 160) {
-            if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
-            if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
+          if (evidenceTitle.length + evidenceDescription.length > 130) {
+            if (evidenceTitle.length > 20) evidenceJSON.name = evidenceTitle.substr(0,17) + '...'
+            if (evidenceDescription.length > 110) evidenceJSON.description = evidenceDescription.substr(0,107) + '...'
           }
 
           const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/token/${tokenID}`)
@@ -312,7 +312,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
                 const shortenedTokenLink = await bitly.shorten(`https://etherscan.io/token/${token.addr}`)
                 const shortenedGuidlines = await bitly.shorten(`https://ipfs.kleros.io/ipfs/QmVzwEBpGsbFY3UgyjA3SxgGXx3r5gFGynNpaoXkp6jenu/Ethfinex%20Court%20Policy.pdf`)
                 tweet = await twitterClient.post('statuses/update', {
-                  status: `${token.name} has requested an Ethfinex Compliant Badge with a deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
+                  status: `${token.name} has requested an Ethfinex Compliant Badge. Verify that the token meets the criteria. If you challenge and win, you will take the deposit of ${prettyWeiToEth(requesterWinnableDeposit)} ETH. \n\nSee the listing here: ${shortenedLink.url}`,
                   in_reply_to_status_id,
                   auto_populate_reply_metadata: true,
                   media_ids: [media.data.media_id_string]
@@ -356,9 +356,9 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           evidenceJSON.name = evidenceTitle
           const evidenceDescription = evidenceJSON.description || ''
 
-          if (evidenceTitle.length + evidenceDescription.length > 160) {
-            if (evidenceTitle.length > 30) evidenceJSON.name = evidenceTitle.substr(0,27) + '...'
-            if (evidenceDescription.length > 130) evidenceJSON.description = evidenceDescription.substr(0,127) + '...'
+          if (evidenceTitle.length + evidenceDescription.length > 130) {
+            if (evidenceTitle.length > 20) evidenceJSON.name = evidenceTitle.substr(0,17) + '...'
+            if (evidenceDescription.length > 110) evidenceJSON.description = evidenceDescription.substr(0,107) + '...'
           }
 
           const shortenedTokenLink = await bitly.shorten(`https://tokens.kleros.io/badge/${process.env.ETHFINEX_BADGE_ID}/${address}`)
@@ -389,14 +389,14 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       let in_reply_to_status_id
       try {
         if (eventLog.returnValues._arbitrable === process.env.T2CR_CONTRACT_ADDRESS) {
-          tokenID = t2crInstance.methods.arbitratorDisputeIDToTokenID(eventLog.returnValues._disputeID)
+          tokenID = await t2crInstance.methods.arbitratorDisputeIDToTokenID(eventLog.returnValues._disputeID).call()
           const token = await t2crInstance.methods.tokens(tokenID).call()
 
           const tokenThread = await db.findOne({tokenID})
           if (tokenThread)
             in_reply_to_status_id = await tokenThread.lastTweetID
 
-          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID)
+          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID).call()
           if (currentRuling === '0')
             continue
 
@@ -419,7 +419,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           tweetID = tweet.data.id_str
         }
         if (eventLog.returnValues._arbitrable === process.env.BADGE_CONTRACT_ADDRESS) {
-          const address = badgeEvents.methods.arbitratorDisputeIDToAddress(eventLog.returnValues._disputeID)
+          const address = await badgeInstance.methods.arbitratorDisputeIDToAddress(eventLog.returnValues._disputeID).call()
 
           const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
           tokenID = tokenQuery.values[0]
@@ -429,7 +429,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           if (tokenThread)
             in_reply_to_status_id = await tokenThread.lastTweetID
 
-          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID)
+          const currentRuling = await athenaInstance.methods.currentRuling(eventLog.returnValues._disputeID).call()
           if (currentRuling === '0')
             continue
 
