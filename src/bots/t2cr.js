@@ -389,7 +389,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
       let in_reply_to_status_id
       try {
         if (eventLog.returnValues._arbitrable === process.env.T2CR_CONTRACT_ADDRESS) {
-          tokenID = await t2crInstance.methods.arbitratorDisputeIDToTokenID(eventLog.returnValues._disputeID).call()
+          tokenID = await t2crInstance.methods.arbitratorDisputeIDToTokenID(process.env.ARBITRATOR_CONTRACT_ADDRESS, eventLog.returnValues._disputeID).call()
           const token = await t2crInstance.methods.tokens(tokenID).call()
 
           const tokenThread = await db.findOne({tokenID})
@@ -419,7 +419,7 @@ module.exports = async (web3, twitterClient, mongoClient) => {
           tweetID = tweet.data.id_str
         }
         if (eventLog.returnValues._arbitrable === process.env.BADGE_CONTRACT_ADDRESS) {
-          const address = await badgeInstance.methods.arbitratorDisputeIDToAddress(eventLog.returnValues._disputeID).call()
+          const address = await badgeInstance.methods.arbitratorDisputeIDToAddress(process.env.ARBITRATOR_CONTRACT_ADDRESS, eventLog.returnValues._disputeID).call()
 
           const tokenQuery = await t2crInstance.methods.queryTokens('0x0000000000000000000000000000000000000000000000000000000000000000', 1, [false,true,false,false,false,false,false,false], true, address).call()
           tokenID = tokenQuery.values[0]
