@@ -86,22 +86,17 @@ module.exports = async (web3, mongoClient) => {
       // console.log(`bestAnswer: ${bestAnswer}`)
       // console.log(`bond: ${bond}`)
       // console.log(`answerer: ${answerer}`)
-      try {
-        const txHash = await proxyInstance.methods.reportAnswer(
-          questionID,
-          historyHash,
-          bestAnswer,
-          bond,
-          answerer,
-          false
-        ).send({
-          from: web3.eth.accounts.wallet[0].address,
-          gas: process.env.GAS_LIMIT
-        })
-        console.log(`DISPUTE ${_disputeID} REPORTED || TX_HASH ${txHash.transactionHash}`)
-      } catch (e) {
-        console.log('Tx Reverted')
-      }
+      const txHash = await proxyInstance.methods.reportAnswer(
+        questionID,
+        historyHash,
+        bestAnswer,
+        bond,
+        answerer,
+        false
+      ).send({
+        from: web3.eth.accounts.wallet[0].address,
+        gas: process.env.GAS_LIMIT
+      })
     }
     db.findOneAndUpdate({'proxyAddress': proxyAddress}, {$set: {lastBlock: currentBlock}}, { upsert: true })
     lastBlock=currentBlock+1
