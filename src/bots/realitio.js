@@ -39,12 +39,12 @@ module.exports = async (web3, mongoClient) => {
   while (true) {
     await delay(process.env.DELAY_AMOUNT)
     currentBlock = await web3.eth.getBlockNumber()
-    console.log(lastBlock)
+    // console.log(lastBlock)
     ruleEvents = await proxyInstance.getPastEvents('Ruling', {
       fromBlock: lastBlock,
       toBlock: 'latest'
     })
-    console.log(ruleEvents.length)
+    // console.log(ruleEvents.length)
 
     // A Ruling was made
     for (const eventLog of ruleEvents) {
@@ -74,9 +74,9 @@ module.exports = async (web3, mongoClient) => {
 
       // Only 1 answer
       let historyHash = '0x0000000000000000000000000000000000000000000000000000000000000000'
-      if (answerEvents.length > 1)
-        historyHash = answerEvents[answerEvents.length - 2].returnValues.historyHash
-
+      if (answerEvents.length > 1) {
+        historyHash = answerEvents[answerEvents.length - 2].returnValues.history_hash
+      }
       const answerer = answerEvents[answerEvents.length - 1].returnValues.user
 
       // DEBUG
@@ -86,19 +86,22 @@ module.exports = async (web3, mongoClient) => {
       // console.log(`bestAnswer: ${bestAnswer}`)
       // console.log(`bond: ${bond}`)
       // console.log(`answerer: ${answerer}`)
-
-      const txHash = await proxyInstance.methods.reportAnswer(
-        questionID,
-        historyHash,
-        bestAnswer,
-        bond,
-        answerer,
-        false
-      ).send({
-        from: web3.eth.accounts.wallet[0].address,
-        gas: process.env.GAS_LIMIT
-      })
-      console.log(`DISPUTE ${_disputeID} REPORTED || TX_HASH ${txHash.transactionHash}`)
+      try {
+        const txHash = await proxyInstance.methods.reportAnswer(
+          questionID,
+          historyHash,
+          bestAnswer,
+          bond,
+          answerer,
+          false
+        ).send({
+          from: web3.eth.accounts.wallet[0].address,
+          gas: process.env.GAS_LIMIT
+        })
+        console.log(`DISPUTE ${_disputeID} REPORTED || TX_HASH ${txHash.transactionHash}`)
+      } catch (e) {
+        console.log('Tx Reverted')
+      }
     }
     db.findOneAndUpdate({'proxyAddress': proxyAddress}, {$set: {lastBlock: currentBlock}}, { upsert: true })
     lastBlock=currentBlock+1
