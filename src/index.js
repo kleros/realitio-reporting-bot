@@ -24,11 +24,13 @@ const run = async bot => {
     process.env.PROXY_TRST_CONTRACT_ADDRESS,
   ]
 
+  let bots = []
   while (true) {
     try {
       for (let i=0; i<realitioAddresses.length; i++) {
-        await bot(web3, mongoClient, realitioAddresses[i], proxyAddresses[i])
+        bots.push(bot(web3, mongoClient, realitioAddresses[i], proxyAddresses[i]))
       }
+      await Promise.all(bots)
     } catch (err) {
       console.error('Bot error: ', err)
     }
