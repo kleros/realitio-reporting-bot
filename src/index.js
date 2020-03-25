@@ -15,10 +15,20 @@ const run = async bot => {
   console.log(web3.eth.accounts.wallet[0].address)
 
   const mongoClient = await _mongoClient()
+  const realitioAddresses = [
+    process.env.REALITIO_CONTRACT_ADDRESS,
+    process.env.REALITIO_TRST_CONTRACT_ADDRESS
+  ]
+  const proxyAddresses = [
+    process.env.PROXY_CONTRACT_ADDRESS,
+    process.env.PROXY_TRST_CONTRACT_ADDRESS,
+  ]
 
   while (true) {
     try {
-      await bot(web3, mongoClient)
+      for (let i=0; i<realitioAddresses.length; i++) {
+        await bot(web3, mongoClient, realitioAddresses[i], proxyAddresses[i])
+      }
     } catch (err) {
       console.error('Bot error: ', err)
     }

@@ -9,13 +9,12 @@ const _proxy = require('../contracts/proxy.json')
 const REALITIO_MONGO_COLLECTION = 'questions'
 const IPFS_URL = 'https://ipfs.kleros.io'
 
-module.exports = async (web3, mongoClient) => {
+module.exports = async (web3, mongoClient, realitioAddress, proxyAddress) => {
   // Instantiate the contracts.
   const realitioInstance = new web3.eth.Contract(
     _realitio.abi,
-    process.env.REALITIO_CONTRACT_ADDRESS
+    realitioAddress
   )
-  const proxyAddress = process.env.PROXY_CONTRACT_ADDRESS
   const proxyInstance = new web3.eth.Contract(
     _proxy.abi,
     proxyAddress
