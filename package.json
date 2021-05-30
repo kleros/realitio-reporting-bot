@@ -26,7 +26,6 @@
     ]
   },
   "devDependencies": {
-    "@kleros/kathari": "^0.20.0",
     "standard-version": "^4.4.0"
   },
   "dependencies": {
@@ -39,5 +38,8 @@
     "twit": "^2.2.11",
     "web3": "^1.2.6",
     "web3-provider-engine": "^14.2.0"
+  },
+  "prettier": {
+       "printWidth": 180,
   }
 }
