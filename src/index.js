@@ -3,7 +3,7 @@ const Web3 = require('web3')
 const ZeroClientProvider = require('web3-provider-engine/zero')
 
 const _mongoClient = require('./mongo-client')
-const bots = [require('./bots/realitio')]
+const bots = [require('./bots/realitio_v2.0'), require('./bots/realitio_v2.1')]
 
 // Run bots and restart them on failures.
 const run = async bot => {
@@ -17,11 +17,11 @@ const run = async bot => {
   const mongoClient = await _mongoClient()
   const realitioAddresses = [
     process.env.REALITIO_CONTRACT_ADDRESS,
-    process.env.REALITIO_TRST_CONTRACT_ADDRESS
+    process.env.REALITIO_V2_1,
   ]
   const proxyAddresses = [
     process.env.PROXY_CONTRACT_ADDRESS,
-    process.env.PROXY_TRST_CONTRACT_ADDRESS,
+    process.env.PROXY_V2_1,
   ]
 
   let bots = []
