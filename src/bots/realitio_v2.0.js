@@ -3,8 +3,8 @@ const axios = require('axios')
 const { BitlyClient } = require('bitly')
 const delay = require('delay')
 
-const _realitio = require('../contracts/realitio.json')
-const _proxy = require('../contracts/proxy.json')
+const _realitio = require('../contracts/Realitio_v2_0.json')
+const _proxy = require('../contracts/Realitio_v2_0_ArbitratorWithAppeals.json')
 
 const REALITIO_MONGO_COLLECTION = 'questions'
 const IPFS_URL = 'https://ipfs.kleros.io'
@@ -85,7 +85,7 @@ module.exports = async (web3, mongoClient, realitioAddress, proxyAddress) => {
       // console.log(`bestAnswer: ${bestAnswer}`)
       // console.log(`bond: ${bond}`)
       // console.log(`answerer: ${answerer}`)
-      const txHash = await proxyInstance.methods.reportAnswer(
+      const txHash = await proxyInstance.methods.computeWinnerAndReportAnswer(
         questionID,
         historyHash,
         bestAnswer,
