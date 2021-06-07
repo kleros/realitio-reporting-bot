@@ -29,7 +29,7 @@
     "standard-version": "^4.4.0"
   },
   "dependencies": {
-    "axios": "^0.18.0",
+    "axios": "^0.21.1",
     "bitly": "^6.0.8",
     "delay": "^4.1.0",
     "env-cmd": "^8.0.2",
